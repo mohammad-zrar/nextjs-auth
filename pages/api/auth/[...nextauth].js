@@ -1,28 +1,34 @@
-import NextAuth from "next-auth";
-import CredentialProvider from "next-auth/providers/credentials";
-import { connectToDatabase } from "../../../lib/db";
-import { verifyPassword } from "../../../lib/auth";
+import NextAuth from 'next-auth';
+import Credentials from 'next-auth/providers/credentials';
 
-export default NextAuth({
+import { verifyPassword } from '../../../lib/auth';
+import { connectToDatabase } from '../../../lib/db';
+
+export const authOptions = {
+    secret: 'thequickbrownfox',
     session: {
-        strategy: 'jwt'
+        jwt: true,
     },
     providers: [
-        CredentialProvider({
+        Credentials({
             async authorize(credentials) {
                 const client = await connectToDatabase();
 
                 const usersCollection = client.db('nextjs-auth').collection('users');
 
-                const user = await usersCollection.findOne({ email: credentials.email });
-
+                const user = await usersCollection.findOne({
+                    email: credentials.email,
+                });
 
                 if (!user) {
+                    client.close();
                     throw new Error('No user found!');
                 }
 
-                // Fix the typo here
-                const isValid = await verifyPassword(credentials.password, user.password);
+                const isValid = await verifyPassword(
+                    credentials.password,
+                    user.password
+                );
 
                 if (!isValid) {
                     client.close();
@@ -30,10 +36,10 @@ export default NextAuth({
                 }
 
                 client.close();
-                return {
-                    email: user.email,
-                };
-            }
-        })
-    ]
-});
+                return { email: user.email };
+            },
+        }),
+    ],
+};
+
+export default NextAuth(authOptions);
